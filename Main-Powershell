@@ -1,0 +1,59 @@
+# Export-NpsConfiguration
+Export-NpsConfiguration -Path C:\Dot1x\ProgramFiles\MCTT\Config.xml
+
+# Reads the content of the exported XML file (Config.xml) and stores it in the variable named $con
+$con = Get-Content C:\Dot1x\ProgramFiles\MCTT\Config.xml
+
+do {
+    # Prompt user to enter the last four characters of the MAC address including the dash
+    $MAC = Read-Host -Prompt "Enter Last Four of Mac Including the Dash"
+
+    # Check if the user wants to exit
+    if ($MAC -eq 'exit') {
+        exit
+    }
+
+    # Display help information
+    if ($MAC -eq "?") {
+        Write-Host "Currently in Section Code MCTT"
+        Write-Host "Enter Mac Last Four with the Dash"
+        Write-Host "Type Exit to return to Section Selector"
+        & C:\Dot1x\ProgramFiles\MCTT\TheMACAdder.ps1
+    }
+    elseif ($MAC.Length -ge 3 -and $MAC[2] -ne '-') {
+        Write-Host "Error: The third character must be a hyphen. Please try again."
+    }
+    else {
+        # Generate the MacKey
+        $Start = "|/-"
+        $End = '")'
+        $MacKey = Set-Content -NoNewline C:\Dot1x\ProgramFiles\MCTT\key.txt -Value $Start$MAC$End
+        $New = Get-Content C:\Dot1x\ProgramFiles\MCTT\key.txt -Raw
+
+        # Read the content of Current.txt
+        $current = Get-Content C:\Dot1x\ProgramFiles\MCTT\Current.txt -Raw
+
+        # Create Length.txt with a substring of Current.txt
+        $Strip = Set-Content -NoNewline C:\Dot1x\ProgramFiles\MCTT\Length.txt -Value $current.Substring(0, $current.Length - 2)
+        $Length = Get-Content C:\Dot1x\ProgramFiles\MCTT\Length.txt -Raw
+
+        # Create Config.txt with a combination of Length and New content
+        $Config = Set-Content -NoNewline C:\Dot1x\ProgramFiles\MCTT\Config.txt -Value $Length$new
+        $Config = Get-Content C:\Dot1x\ProgramFiles\MCTT\Config.txt -Raw
+        Write-Host "Content of Config.txt: $Config"
+
+        # Replaces specific content in $con using $current and $Config, then saves the result to Config1.xml.
+        $con = $con -replace [regex]::Escape($current), $Config
+        $con | Set-Content C:\Dot1x\ProgramFiles\MCTT\Config1.xml
+
+        # Import the modified NPS configuration from Config1.xml
+        Import-NpsConfiguration C:\Dot1x\ProgramFiles\MCTT\Config1.xml
+
+	#Start Cleanup Procedures
+	& C:\Dot1x\ProgramFiles\MCTT\cleanup.ps1
+	& C:\Dot1x\ProgramFiles\MCTT\FinalClean.ps1
+	& C:\Dot1x\ProgramFiles\MCTT\TheMACAdder.ps1
+
+        break
+    }
+} while ($true)
